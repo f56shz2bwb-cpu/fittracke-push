@@ -1,4 +1,4 @@
-const { getStore } = require("@netlify/blobs");
+const { fittrackerStore } = require("./_blobs");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -7,9 +7,9 @@ exports.handler = async (event) => {
   try {
     const subscription = JSON.parse(event.body);
     if (!subscription || !subscription.endpoint) {
-      return { statusCode: 400, body: "Ungültige Subscription" };
+      return { statusCode: 400, body: "Ungueltige Subscription" };
     }
-    const store = getStore("fittracker");
+    const store = fittrackerStore();
     await store.setJSON("subscription", subscription);
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (err) {
