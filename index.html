@@ -1250,7 +1250,7 @@ function buildMeals(){
   const ml=document.getElementById("mealList");ml.innerHTML="";
   slots.forEach(slot=>{
     const sel=getMealSelection(slot.id);
-    const macros=calcMealMacros(sel);
+  const macros=getMealMacros(slot.id,sel);
     const done=S.get(MK(slot.id+"_done"),false);
     const isOpen=S.get(MK(slot.id+"_open"),false);
     const time=S.get(MK(slot.id+"_time"),slot.defaultTime);
