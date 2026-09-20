@@ -1233,7 +1233,7 @@ function buildMeals(){
     const sel=getMealSelection(slot.id);
     const done=S.get(MK(slot.id+"_done"),false);
     if(done){
-      const m=calcMealMacros(sel);
+  const m=getMealMacros(slot.id,sel);
       totalKcal+=m.kcal;totalProt+=m.prot;totalCarbs+=m.carbs;totalFat+=m.fat;mealDone++;
     }
   });
