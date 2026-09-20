@@ -1,8 +1,8 @@
-const { getStore } = require("@netlify/blobs");
+const { fittrackerStore } = require("./_blobs");
 
 exports.handler = async () => {
   try {
-    const store = getStore("fittracker");
+    const store = fittrackerStore();
     const subscription = await store.get("subscription", { type: "json" });
     const reminders = await store.get("reminders", { type: "json" });
 
@@ -43,6 +43,8 @@ exports.handler = async () => {
           reminders_anzahl: Array.isArray(reminders) ? reminders.length : 0,
           reminders: reminders || [],
           heute_bereits_gesendet: sentLog || {},
+          netlify_site_id_gesetzt: !!process.env.NETLIFY_SITE_ID,
+          fittracker_key_gesetzt: !!process.env.fittracker_key,
           vapid_public_key_gesetzt: !!process.env.VAPID_PUBLIC_KEY,
           vapid_private_key_gesetzt: !!process.env.VAPID_PRIVATE_KEY,
         },
