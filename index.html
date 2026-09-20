@@ -1344,13 +1344,9 @@ async function handleFoodPhoto(input){
     loading.innerHTML='<div class="spinner"></div><span>KI analysiert dein Essen...</span>';
     preview.after(loading);
     try{
-      const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      const resp=await fetch("/.netlify/functions/analyze-food",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,
-          messages:[{role:"user",content:[
-            {type:"image",source:{type:"base64",media_type:file.type,data:b64}},
-            {type:"text",text:'Analysiere dieses Essen. Antworte NUR mit JSON (kein Markdown): {"dish":"Name","portion":"geschätzte Portion","kcal":Zahl,"prot":Zahl,"carbs":Zahl,"fat":Zahl,"confidence":"hoch/mittel/niedrig"}'}
-          ]}]})
+        body:JSON.stringify({base64:b64,mediaType:file.type})
       });
       const data=await resp.json();
       const text=data.content.filter(c=>c.type==="text").map(c=>c.text).join("");
