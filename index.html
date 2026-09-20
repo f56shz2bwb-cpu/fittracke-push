@@ -1374,8 +1374,33 @@ function saveAiMeal(){
   const d=S.get(`ft3_ai_${TODAY()}`,null);
   if(d){S.set(`ft3_ai_${TODAY()}`,{...d,saved:true});buildMeals();showToast("Hinzugefügt ✓");}
 }
+function renderAiSlotButtons(){
+  const box=document.getElementById("aiSlotButtons");
+  if(!box)return;
+  const slots=getMealSlots();
+  box.innerHTML=slots.map(slot=>
+    `<button class="btn-green" style="flex:1;min-width:100px;font-size:13px;padding:10px 6px" onclick="saveAiMealToSlot('${slot.id}')">${slot.label}</button>`
+  ).join("");
+}
 
-// ============ BODY ============
+function saveAiMealToSlot(slotId){
+  const d=S.get(`ft3_ai_${TODAY()}`,null);
+  if(!d)return;
+  S.set(MK(slotId+"_aimeal"),{dish:d.dish,portion:d.portion,kcal:d.kcal||0,prot:d.prot||0,carbs:d.carbs||0,fat:d.fat||0});
+  S.set(MK(slotId+"_done"),true);
+  S.del(`ft3_ai_${TODAY()}`);
+  document.getElementById("aiResult").style.display="none";
+  document.getElementById("scannerArea").style.display="block";
+  buildMeals();
+  const label=(getMealSlots().find(s=>s.id===slotId)||{}).label||"Mahlzeit";
+  showToast(`Als ${label} gespeichert ✓`);
+}
+
+function getMealMacros(slotId,sel){
+  const ai=S.get(MK(slotId+"_aimeal"),null);
+  if(ai)return{kcal:ai.kcal||0,prot:ai.prot||0,carbs:ai.carbs||0,fat:ai.fat||0};
+  return calcMealMacros(sel);
+}// ============ BODY ============
   
 function buildBody(){
   const profile=S.get("ft3_profile",{});
