@@ -1362,7 +1362,7 @@ async function handleFoodPhoto(input){
         <div class="ai-macro"><div class="ai-macro-val" style="color:var(--yellow)">${result.carbs||0}g</div><div class="ai-macro-lbl">Carbs</div></div>
         <div class="ai-macro"><div class="ai-macro-val" style="color:var(--blue)">${result.fat||0}g</div><div class="ai-macro-lbl">Fett</div></div>`;
       document.getElementById("aiResult").style.display="block";
-    }catch(err){
+      renderAiSlotButtons();    }catch(err){
       showToast("KI-Analyse fehlgeschlagen");
       document.getElementById("scannerArea").style.display="block";
     }
