@@ -1,4 +1,4 @@
-const { getStore } = require("@netlify/blobs");
+const { fittrackerStore } = require("./_blobs");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -9,7 +9,7 @@ exports.handler = async (event) => {
     if (!Array.isArray(reminders)) {
       return { statusCode: 400, body: "Erwarte ein Array" };
     }
-    const store = getStore("fittracker");
+    const store = fittrackerStore();
     await store.setJSON("reminders", reminders);
     return { statusCode: 200, body: JSON.stringify({ ok: true, count: reminders.length }) };
   } catch (err) {
