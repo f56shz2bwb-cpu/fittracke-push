@@ -2,6 +2,7 @@ const webpush = require("web-push");
 const { getStore } = require("@netlify/blobs");
 
 const DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+const TOLERANCE_MINUTES = 10; // Fenster nach der Zielzeit, in dem noch nachgeholt wird
 
 function parseReminderTime(r) {
   const time = (r.time || "").trim();
@@ -21,6 +22,29 @@ function parseReminderTime(r) {
   return { type: "unknown" };
 }
 
+function timeToMinutes(hm) {
+  const [h, m] = hm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function getTodaysTargets(parsed, todayName) {
+  if (parsed.type === "daily") {
+    return [{ key: "d", minutes: timeToMinutes(parsed.time) }];
+  }
+  if (parsed.type === "weekly") {
+    if (parsed.day.toLowerCase() !== todayName.toLowerCase()) return [];
+    return [{ key: "w", minutes: timeToMinutes(parsed.time) }];
+  }
+  if (parsed.type === "interval") {
+    const targets = [];
+    for (let h = parsed.startHour; h <= parsed.endHour; h += parsed.hours) {
+      targets.push({ key: `i${h}`, minutes: h * 60 });
+    }
+    return targets;
+  }
+  return [];
+}
+
 exports.handler = async () => {
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
@@ -37,13 +61,14 @@ exports.handler = async () => {
   const reminders = (await store.get("reminders", { type: "json" })) || [];
 
   if (!subscription) {
+    console.log("Kein Subscription-Eintrag vorhanden - nichts zu tun");
     return { statusCode: 200, body: "Keine Subscription hinterlegt" };
   }
   if (reminders.length === 0) {
+    console.log("Keine Reminders hinterlegt - nichts zu tun");
     return { statusCode: 200, body: "Keine Erinnerungen hinterlegt" };
   }
 
-  // Zeit in de-DE Zeitzone berechnen (Netlify-Server laufen in UTC)
   const now = new Date();
   const parts = new Intl.DateTimeFormat("de-DE", {
     timeZone: "Europe/Berlin",
@@ -57,10 +82,9 @@ exports.handler = async () => {
   }).formatToParts(now);
   const map = {};
   parts.forEach((p) => (map[p.type] = p.value));
-  const nowHM = `${map.hour}:${map.minute}`;
   const todayName = map.weekday.charAt(0).toUpperCase() + map.weekday.slice(1);
   const dateStr = `${map.year}-${map.month}-${map.day}`;
-  const hour = parseInt(map.hour, 10);
+  const nowMinutes = parseInt(map.hour, 10) * 60 + parseInt(map.minute, 10);
 
   const sentLog = (await store.get(`sent-log-${dateStr}`, { type: "json" })) || {};
   let updated = false;
@@ -69,24 +93,20 @@ exports.handler = async () => {
   for (const r of reminders) {
     if (!r.on) continue;
     const parsed = parseReminderTime(r);
-    let fireKey = null;
+    const targets = getTodaysTargets(parsed, todayName);
 
-    if (parsed.type === "daily" && parsed.time === nowHM) {
-      fireKey = r.id;
-    } else if (parsed.type === "weekly" && parsed.day.toLowerCase() === todayName.toLowerCase() && parsed.time === nowHM) {
-      fireKey = r.id;
-    } else if (parsed.type === "interval") {
-      if (map.minute === "00" && hour >= parsed.startHour && hour <= parsed.endHour && (hour - parsed.startHour) % parsed.hours === 0) {
-        fireKey = `${r.id}_${map.hour}`;
+    for (const t of targets) {
+      const fireKey = `${r.id}_${t.key}`;
+      const diff = nowMinutes - t.minutes;
+      if (diff >= 0 && diff <= TOLERANCE_MINUTES && !sentLog[fireKey]) {
+        toSend.push(r);
+        sentLog[fireKey] = true;
+        updated = true;
       }
     }
-
-    if (fireKey && !sentLog[fireKey]) {
-      toSend.push(r);
-      sentLog[fireKey] = true;
-      updated = true;
-    }
   }
+
+  console.log(`Check um ${map.hour}:${map.minute} Uhr (${todayName}) - ${toSend.length} Erinnerung(en) faellig`);
 
   for (const r of toSend) {
     const payload = JSON.stringify({
@@ -96,11 +116,12 @@ exports.handler = async () => {
     });
     try {
       await webpush.sendNotification(subscription, payload);
+      console.log(`Push gesendet: ${r.name}`);
     } catch (err) {
-      console.error("Push-Fehler für", r.id, err.statusCode, err.message);
-      // 410/404 = Subscription ist abgelaufen -> aufräumen
+      console.error("Push-Fehler fuer", r.id, err.statusCode, err.message);
       if (err.statusCode === 410 || err.statusCode === 404) {
         await store.delete("subscription");
+        console.log("Abgelaufene Subscription entfernt");
       }
     }
   }
@@ -109,5 +130,5 @@ exports.handler = async () => {
     await store.setJSON(`sent-log-${dateStr}`, sentLog);
   }
 
-  return { statusCode: 200, body: JSON.stringify({ sent: toSend.length }) };
+  return { statusCode: 200, body: JSON.stringify({ sent: toSend.length, checked_at: `${map.hour}:${map.minute}` }) };
 };
