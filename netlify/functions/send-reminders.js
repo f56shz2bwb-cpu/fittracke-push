@@ -1,8 +1,8 @@
 const webpush = require("web-push");
-const { getStore } = require("@netlify/blobs");
+const { fittrackerStore } = require("./_blobs");
 
 const DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-const TOLERANCE_MINUTES = 10; // Fenster nach der Zielzeit, in dem noch nachgeholt wird
+const TOLERANCE_MINUTES = 10;
 
 function parseReminderTime(r) {
   const time = (r.time || "").trim();
@@ -56,7 +56,14 @@ exports.handler = async () => {
   }
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 
-  const store = getStore("fittracker");
+  let store;
+  try {
+    store = fittrackerStore();
+  } catch (err) {
+    console.error("Blobs-Store Fehler:", err.message);
+    return { statusCode: 500, body: err.message };
+  }
+
   const subscription = await store.get("subscription", { type: "json" });
   const reminders = (await store.get("reminders", { type: "json" })) || [];
 
